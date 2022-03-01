@@ -56,6 +56,38 @@ def productor(storage, pid, empty, nonEmpty, mutex):
     
 
 def consumidor(storage, emptys, nonEmptys, mergedList):
+    print(f'Consumer start waiting all')
+    
+    for i in range(Nproc):
+        print(f'Waiting for Producer {i}...')
+        nonEmptys[i].acquire()
+        print(f'Finished waiting {i}...')
+    
+    end = False
+    while not end:
+        #mutex.acquire()
+        print(f'Starting to consume...')
+        mindex = minIndex(storage)
+        
+        if mindex != -1:
+            mergedList.append(storage[mindex])
+            print(f'Consumed element from {mindex}.')
+            emptys[mindex].release()
+            
+            print(f'Waiting for Producer {mindex}...')
+            nonEmptys[mindex].acquire()
+            print(f'Finished waiting {mindex}...')
+            
+        else:
+            end = True
+            print(f'Finished consuming.')
+    print(mergedList)
+    
+    
+        
+        
+    
+    '''
     end = False
     while not end:
         #mutex.acquire()
@@ -84,7 +116,7 @@ def consumidor(storage, emptys, nonEmptys, mergedList):
         print(f"Consumido producto {mindex}")
     
     print(mergedList)
-        
+    '''
 
 def main():
     mergedList = []
