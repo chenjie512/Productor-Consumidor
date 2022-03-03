@@ -14,8 +14,6 @@ K = 5
 def minIndex(storage):
     m = 0
     for i in range(1,len(storage)):
-        #if storage[m] == -1:
-            #m = i
         if storage[m] == -1 or (storage[i]>=0 and storage[i] < storage[m]):
             m = i
     if storage[m] == -1:
@@ -26,12 +24,16 @@ def producer(storage, pid, empty, nonEmpty, mutex):
     d = randint(0, Crec)
     empty.acquire()
     print(f'Producer {pid} starting production')
-    mutex.acquire()
-    storage[pid*K]
     
+    mutex.acquire()
+    storage[pid*K] = d
+    mutex.release()
     
     lastSaved = 0
-    for i in range(Mprod):
+    print(f'Producer {pid} stored {storage[pid*K]}...')
+    nonEmpty.release()
+    
+    for i in range(Mprod-1):
         d = randint(0, Crec)
         
         empty.acquire()
@@ -39,10 +41,11 @@ def producer(storage, pid, empty, nonEmpty, mutex):
         print(f"Producer {pid} producing...")
         
         mutex.acquire()
-        storage[pid] = storage[pid] + d
+        storage[((lastSaved+1)%K) + pid*K] = storage[lastSaved + pid*K] + d
         mutex.release()
+        lastSaved = (lastSaved + 1)%K
         
-        print(f"Producer {pid} stored {storage[pid]}...")
+        print(f"Producer {pid} stored {storage[lastSaved + pid*K]}...")
         nonEmpty.release()
         
         
@@ -50,7 +53,7 @@ def producer(storage, pid, empty, nonEmpty, mutex):
     print(f'Producer {pid} finishing...')
     
     mutex.acquire()
-    storage[pid] = -1
+    storage[((lastSaved+1)%K) + pid*K] = -1
     mutex.release()
     
     nonEmpty.release()
@@ -59,6 +62,8 @@ def producer(storage, pid, empty, nonEmpty, mutex):
 
 def merger(storage, emptys, nonEmptys, mutex):
     mergedList = []
+    cindex = [i*K for i in range(Nprod)]
+    
     print(f'Consumer start waiting all')
     
     for i in range(Nprod):
@@ -68,33 +73,35 @@ def merger(storage, emptys, nonEmptys, mutex):
     
     end = False
     while not end:
-        #mutex.acquire()
         print(f'Starting to consume...')
         
         mutex.acquire()
-        mindex = minIndex(storage)
+        i = minIndex([storage[j] for j in cindex])
+        mindex = cindex[i]
         v = storage[mindex]
         mutex.release()
         
-        if mindex != -1:
-            print(f'Consumed element from {mindex}.')
+        cindex[i] = (cindex[i]+1)%K + i*K
+        if i != -1:
+            print(f'Consumed element from {i}.')
             mergedList.append(v)
-            emptys[mindex].release()
+            emptys[i].release()
             
-            print(f'Waiting for Producer {mindex}...')
-            nonEmptys[mindex].acquire()
-            print(f'Finished waiting Producer {mindex}...')
+            print(f'Waiting for Producer {i}...')
+            nonEmptys[i].acquire()
+            print(f'Finished waiting Producer {i}...')
             
         else:
             end = True
             print(f'Finished consuming.')
+            
     print(mergedList, len(mergedList))
 
 def main():
-    storage = Array('i', [0]*Nprod)
+    storage = Array('i', [0]*Nprod*K)
     mutex = Lock()
     
-    listEmpty = [BoundedSemaphore(1) for _ in range(Nprod)]
+    listEmpty = [BoundedSemaphore(K) for _ in range(Nprod)]
     listNonEmpty = [Semaphore(0) for _ in range(Nprod)]
     
     listProd = [Process(target=producer, 
