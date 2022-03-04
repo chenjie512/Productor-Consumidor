@@ -5,9 +5,9 @@ Merged con Producciones de longitud k
 '''
 #constantes
 Crec = 9    #crecimiento de los valores
-Nprod = 3  #numero de productores
-Mprod = 10  #numero de producciones
-K = 5
+Nprod = 10  #numero de productores
+Mprod = 20  #numero de producciones
+K = 10   #Capacidad del almacen para cada productor
 
 #funcion auxiliar para el calculo del minimo distinto de -1
 #si es un un vector d -1, devuelve un -1
@@ -21,6 +21,7 @@ def minIndex(storage):
     return m
 
 def producer(storage, pid, empty, nonEmpty, mutex):
+    #primera produccion
     d = randint(0, Crec)
     empty.acquire()
     print(f'Producer {pid} starting production')
@@ -32,7 +33,7 @@ def producer(storage, pid, empty, nonEmpty, mutex):
     lastSaved = 0
     print(f'Producer {pid} stored {storage[pid*K]}...')
     nonEmpty.release()
-    
+    #siguientes producciones
     for i in range(Mprod-1):
         d = randint(0, Crec)
         
@@ -41,14 +42,15 @@ def producer(storage, pid, empty, nonEmpty, mutex):
         print(f"Producer {pid} producing...")
         
         mutex.acquire()
-        storage[((lastSaved+1)%K) + pid*K] = storage[lastSaved + pid*K] + d
-        mutex.release()
+        v = storage[lastSaved + pid*K] + d
         lastSaved = (lastSaved + 1)%K
+        storage[lastSaved + pid*K] = v
+        mutex.release()
         
-        print(f"Producer {pid} stored {storage[lastSaved + pid*K]}...")
+        print(f"Producer {pid} stored {v}...")
         nonEmpty.release()
         
-        
+    #ultima produccion
     empty.acquire()
     print(f'Producer {pid} finishing...')
     
@@ -62,8 +64,8 @@ def producer(storage, pid, empty, nonEmpty, mutex):
 
 def merger(storage, emptys, nonEmptys, mutex):
     mergedList = []
-    cindex = [i*K for i in range(Nprod)]
-    
+    indexlist = [i*K for i in range(Nprod)]    #lista de indices del producto a consumir
+                                            # para cada productor
     print(f'Consumer start waiting all')
     
     for i in range(Nprod):
@@ -76,12 +78,12 @@ def merger(storage, emptys, nonEmptys, mutex):
         print(f'Starting to consume...')
         
         mutex.acquire()
-        i = minIndex([storage[j] for j in cindex])
-        mindex = cindex[i]
+        i = minIndex([storage[j] for j in indexlist])
+        mindex = indexlist[i]
         v = storage[mindex]
         mutex.release()
         
-        cindex[i] = (cindex[i]+1)%K + i*K
+        indexlist[i] = (indexlist[i]+1)%K + i*K
         if i != -1:
             print(f'Consumed element from {i}.')
             mergedList.append(v)
